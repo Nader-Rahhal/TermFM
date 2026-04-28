@@ -131,7 +131,7 @@ int main() {
         Element statusBar = hbox({text(" "), text(statusMsg) | color(c)});
 
         return vbox({
-            text(" TermFM  -  Terminal Radio Player ")
+            text(" TermFM")
                 | bold | color(Color::Cyan) | center,
             separator(),
             hbox({

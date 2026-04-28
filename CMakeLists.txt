@@ -5,6 +5,13 @@ set(CMAKE_CXX_STANDARD 17)
 
 include(FetchContent)
 
+find_program(FFPLAY_EXECUTABLE ffplay)
+if(NOT FFPLAY_EXECUTABLE)
+    message(WARNING "ffplay not found — install ffmpeg and make sure ffplay is on your PATH")
+else()
+    message(STATUS "Found ffplay: ${FFPLAY_EXECUTABLE}")
+endif()
+
 FetchContent_Declare(ftxui
     GIT_REPOSITORY https://github.com/ArthurSonzogni/FTXUI
     GIT_TAG main
