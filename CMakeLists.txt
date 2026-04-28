@@ -17,9 +17,13 @@ FetchContent_Declare(json
 
 FetchContent_MakeAvailable(ftxui json)
 
-add_executable(radio src/Main.cpp)
+add_executable(radio
+    src/Main.cpp
+    src/AudioPlayer.cpp
+    src/RadioBrowser.cpp
+)
 target_link_libraries(radio PRIVATE ftxui::component)
 target_include_directories(radio PRIVATE
-    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/include
     ${json_SOURCE_DIR}
 )
