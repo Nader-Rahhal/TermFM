@@ -3,16 +3,23 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <fstream>
+#include <filesystem>
 
 #include "AudioPlayer.hpp"
 #include "RadioBrowser.hpp"
+#include "StaticStack.hpp"
 #include "ftxui/component/component.hpp"
 #include "ftxui/component/screen_interactive.hpp"
 #include "ftxui/dom/elements.hpp"
 
+#include "json.hpp"
+
+using json = nlohmann::json;
 using namespace ftxui;
 
 int main() {
+
     auto screen = ScreenInteractive::Fullscreen();
 
     RadioBrowser browser;
@@ -21,12 +28,28 @@ int main() {
     std::mutex mu;
     std::vector<Station> stations;
     std::vector<std::string> entries;
+
     std::atomic<bool> isSearching{false};
 
     std::string searchQuery;
     std::string statusMsg  = "Type a query and press Enter to search";
     std::string nowPlaying;
+    StaticStack<Station, 5> recentStations;
     int selected = 0;
+
+    std::string historyPath = std::string(getenv("HOME")) + "/.config/termfm/history.json";
+    std::ifstream f(historyPath);
+    if (f.is_open()) {
+        try {
+            json arr = json::parse(f);
+            for (auto& s : arr) {
+                stations.push_back({s["name"], s["url"]});
+                entries.push_back(s["name"]);
+                recentStations.push({s["name"], s["url"]});
+            }
+            statusMsg = "Recent stations loaded — press Enter to play";
+        } catch (...) {}
+    }
 
     std::vector<std::string> searchModes = {"By Name", "By Country", "By Language"};
     int searchMode = 0;
@@ -38,7 +61,13 @@ int main() {
         screen.PostEvent(Event::Custom);
 
         std::thread([&] {
-            auto results = searchMode == 0 ? browser.searchByName(searchQuery) : (searchMode == 1 ? browser.searchByCountry(searchQuery) : browser.searchByLanguage(searchQuery));
+            std::string query = searchQuery;
+            if (searchMode == 2) {
+                std::transform(query.begin(), query.end(), query.begin(), ::tolower);
+            }
+            auto results = searchMode == 0 ? browser.searchByName(query)
+                         : searchMode == 1 ? browser.searchByCountry(query)
+                                           : browser.searchByLanguage(query);
             {
                 std::lock_guard lk(mu);
                 stations = std::move(results);
@@ -79,6 +108,7 @@ int main() {
             if (selected >= 0 && selected < (int)stations.size()) {
                 player.play(stations[selected].url);
                 nowPlaying = stations[selected].name;
+                recentStations.push(stations[selected]);
                 statusMsg  = "Now playing: " + nowPlaying;
             }
             return true;
@@ -95,6 +125,14 @@ int main() {
     auto root = Container::Vertical({searchInput, stationMenu});
     root |= CatchEvent([&](Event e) {
         if (e == Event::Character('q') || e == Event::Character('Q')) {
+            std::filesystem::create_directories(std::string(getenv("HOME")) + "/.config/termfm");
+
+            json arr = json::array();
+            recentStations.forEach([&](const Station& s) {
+                arr.push_back({{"name", s.name}, {"url", s.url}});
+            });
+
+            std::ofstream(historyPath) << arr.dump(2);
             player.stop();
             screen.ExitLoopClosure()();
             return true;
