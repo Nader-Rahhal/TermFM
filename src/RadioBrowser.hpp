@@ -6,8 +6,12 @@
 #include <string>
 #include <iostream>
 #include <vector>
+#include <algorithm>
+
+
 #include "json.hpp"
 #include "Station.hpp"
+
 using json = nlohmann::json;
 
 class RadioBrowser {
@@ -16,10 +20,26 @@ private:
     std::string codec = "MP3";
     std::vector<Station> stations;
 
-    static std::string trim(const std::string& s) {
+    std::string trim(const std::string& s) {
         size_t start = s.find_first_not_of(" \t\r\n");
         size_t end   = s.find_last_not_of(" \t\r\n");
         return (start == std::string::npos) ? "" : s.substr(start, end - start + 1);
+    }
+
+    std::string urlEncode(const std::string& s) {
+        std::string lower = s;
+        std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+        std::string out;
+        for (unsigned char c : lower) {
+            if (std::isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~') {
+                out += c;
+            } else {
+                char buf[4];
+                snprintf(buf, sizeof(buf), "%%%02X", c);
+                out += buf;
+            }
+        }
+        return out;
     }
 
     std::string get(const std::string& path) {
@@ -63,7 +83,7 @@ public:
     std::vector<Station> getStations() { return stations; }
 
     std::vector<Station> searchByName(const std::string& name) {
-        std::string body = get("/json/stations/byname/" + name);
+        std::string body = get("/json/stations/byname/" + urlEncode(name));
         std::vector<Station> result;
         for (auto& s : json::parse(body))
             if (s.value("codec", "") == codec)
@@ -72,7 +92,16 @@ public:
     }
 
     std::vector<Station> searchByCountry(const std::string& country) {
-        std::string body = get("/json/stations/bycountry/" + country);
+        std::string body = get("/json/stations/bycountry/" + urlEncode(country));
+        std::vector<Station> result;
+        for (auto& s : json::parse(body))
+            if (s.value("codec", "") == codec)
+                result.push_back({trim(s.value("name", "?")), s.value("url", "?")});
+        return result;
+    }
+
+    std::vector<Station> searchByLanguage(const std::string& language) {
+        std::string body = get("/json/stations/bylanguage/" + urlEncode(language));
         std::vector<Station> result;
         for (auto& s : json::parse(body))
             if (s.value("codec", "") == codec)

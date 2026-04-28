@@ -1,5 +1,4 @@
 #include <atomic>
-#include <chrono>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -23,25 +22,14 @@ int main() {
     std::vector<Station> stations;
     std::vector<std::string> entries;
     std::atomic<bool> isSearching{false};
-    std::atomic<bool> isConnecting{false};
-    std::atomic<int>  spinnerFrame{0};
-    std::atomic<int>  connectGen{0};
 
     std::string searchQuery;
     std::string statusMsg  = "Type a query and press Enter to search";
     std::string nowPlaying;
     int selected = 0;
 
-    std::vector<std::string> searchModes = {"By Name", "By Country"};
+    std::vector<std::string> searchModes = {"By Name", "By Country", "By Language"};
     int searchMode = 0;
-    MenuOption toggleOpt = MenuOption::Toggle();
-    toggleOpt.entries_option.transform = [](EntryState s) {
-        auto t = text("  " + s.label + "  ");
-        if (s.active)  t = t | bold;
-        if (s.focused) t = t | inverted;
-        return t;
-    };
-    auto modeToggle = Menu(&searchModes, &searchMode, toggleOpt);
 
     auto doSearch = [&] {
         if (searchQuery.empty() || isSearching) return;
@@ -50,9 +38,7 @@ int main() {
         screen.PostEvent(Event::Custom);
 
         std::thread([&] {
-            auto results = searchMode == 0
-                ? browser.searchByName(searchQuery)
-                : browser.searchByCountry(searchQuery);
+            auto results = searchMode == 0 ? browser.searchByName(searchQuery) : (searchMode == 1 ? browser.searchByCountry(searchQuery) : browser.searchByLanguage(searchQuery));
             {
                 std::lock_guard lk(mu);
                 stations = std::move(results);
@@ -72,45 +58,32 @@ int main() {
     auto searchInput = Input(&searchQuery, "station / artist name...");
     searchInput |= CatchEvent([&](Event e) {
         if (e == Event::Return) { doSearch(); return true; }
+        if (e == Event::Tab) {
+            searchMode = (searchMode + 1) % 3;
+            return true;
+        }
         return false;
     });
 
-    auto stationMenu = Menu(&entries, &selected);
+    MenuOption menuOpt;
+    menuOpt.entries_option.transform = [](EntryState s) {
+        auto t = text(" " + s.label + " ");
+        if (s.focused) t = t | inverted;
+        if (s.active)  t = t | bold;
+        return t;
+    };
+    auto stationMenu = Menu(&entries, &selected, menuOpt);
     stationMenu |= CatchEvent([&](Event e) {
         if (e == Event::Return) {
             std::lock_guard lk(mu);
             if (selected >= 0 && selected < (int)stations.size()) {
                 player.play(stations[selected].url);
-                nowPlaying    = stations[selected].name;
-                statusMsg     = "Connecting...";
-                isConnecting  = true;
-                int gen       = ++connectGen;
-
-                // animate spinner and auto-resolve after ~3 s
-                std::thread([&, gen] {
-                    using namespace std::chrono_literals;
-                    auto deadline = std::chrono::steady_clock::now() + 3s;
-                    while (isConnecting && connectGen == gen) {
-                        ++spinnerFrame;
-                        screen.PostEvent(Event::Custom);
-                        std::this_thread::sleep_for(80ms);
-                        if (std::chrono::steady_clock::now() >= deadline) {
-                            if (connectGen == gen) {
-                                isConnecting = false;
-                                std::lock_guard lk2(mu);
-                                statusMsg = "Now playing: " + nowPlaying;
-                            }
-                            screen.PostEvent(Event::Custom);
-                            return;
-                        }
-                    }
-                }).detach();
+                nowPlaying = stations[selected].name;
+                statusMsg  = "Now playing: " + nowPlaying;
             }
             return true;
         }
         if (e == Event::Character('s') || e == Event::Character('S')) {
-            isConnecting = false;
-            ++connectGen;
             player.stop();
             nowPlaying.clear();
             statusMsg = "Stopped.";
@@ -119,8 +92,7 @@ int main() {
         return false;
     });
 
-    auto searchRow = Container::Horizontal({modeToggle, searchInput});
-    auto root = Container::Vertical({searchRow, stationMenu});
+    auto root = Container::Vertical({searchInput, stationMenu});
     root |= CatchEvent([&](Event e) {
         if (e == Event::Character('q') || e == Event::Character('Q')) {
             player.stop();
@@ -133,6 +105,19 @@ int main() {
     auto ui = Renderer(root, [&] {
         std::lock_guard lk(mu);
 
+        auto modeBar = hbox({
+            text(" Mode: "),
+            text(searchModes[0]) | (searchMode == 0 ? bold : dim)
+                                 | (searchMode == 0 ? color(Color::Cyan) : color(Color::GrayDark)),
+            text("  /  "),
+            text(searchModes[1]) | (searchMode == 1 ? bold : dim)
+                                 | (searchMode == 1 ? color(Color::Cyan) : color(Color::GrayDark)),
+            text("  /  "),
+            text(searchModes[2]) | (searchMode == 2 ? bold : dim)
+                                 | (searchMode == 2 ? color(Color::Cyan) : color(Color::GrayDark)),
+            text("  [Tab to switch]") | dim,
+        });
+
         Element list;
         if (isSearching) {
             list = text("  Searching...") | blink | center | flex;
@@ -142,29 +127,21 @@ int main() {
             list = stationMenu->Render() | vscroll_indicator | frame | flex;
         }
 
-        Element statusBar;
-        if (isConnecting) {
-            statusBar = hbox({
-                text(" "),
-                spinner(6, spinnerFrame) | color(Color::Yellow),
-                text("  " + statusMsg) | color(Color::Yellow),
-            });
-        } else {
-            Color c = nowPlaying.empty() ? Color::GrayDark : Color::Green;
-            statusBar = hbox({text(" "), text(statusMsg) | color(c)});
-        }
+        Color c = nowPlaying.empty() ? Color::GrayDark : Color::Green;
+        Element statusBar = hbox({text(" "), text(statusMsg) | color(c)});
 
         return vbox({
             text(" TermFM  -  Terminal Radio Player ")
                 | bold | color(Color::Cyan) | center,
             separator(),
             hbox({
-                text(" "), modeToggle->Render(),
-                text("  |  Search: "), searchInput->Render(),
+                modeBar,
+                text("  |  Search: "),
+                searchInput->Render(),
             }) | border,
             list | border,
             statusBar | border,
-            text("  [Enter] search / play   [S] stop   [Q] quit  ")
+            text("  [Enter] search / play   [S] stop   [Tab] mode   [Q] quit  ")
                 | dim | center,
         });
     });
