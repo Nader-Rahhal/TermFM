@@ -28,9 +28,20 @@ int main() {
     std::atomic<int>  connectGen{0};
 
     std::string searchQuery;
-    std::string statusMsg  = "Type a station name and press Enter to search";
+    std::string statusMsg  = "Type a query and press Enter to search";
     std::string nowPlaying;
     int selected = 0;
+
+    std::vector<std::string> searchModes = {"By Name", "By Country"};
+    int searchMode = 0;
+    MenuOption toggleOpt = MenuOption::Toggle();
+    toggleOpt.entries_option.transform = [](EntryState s) {
+        auto t = text("  " + s.label + "  ");
+        if (s.active)  t = t | bold;
+        if (s.focused) t = t | inverted;
+        return t;
+    };
+    auto modeToggle = Menu(&searchModes, &searchMode, toggleOpt);
 
     auto doSearch = [&] {
         if (searchQuery.empty() || isSearching) return;
@@ -39,7 +50,9 @@ int main() {
         screen.PostEvent(Event::Custom);
 
         std::thread([&] {
-            auto results = browser.searchByName(searchQuery);
+            auto results = searchMode == 0
+                ? browser.searchByName(searchQuery)
+                : browser.searchByCountry(searchQuery);
             {
                 std::lock_guard lk(mu);
                 stations = std::move(results);
@@ -106,7 +119,8 @@ int main() {
         return false;
     });
 
-    auto root = Container::Vertical({searchInput, stationMenu});
+    auto searchRow = Container::Horizontal({modeToggle, searchInput});
+    auto root = Container::Vertical({searchRow, stationMenu});
     root |= CatchEvent([&](Event e) {
         if (e == Event::Character('q') || e == Event::Character('Q')) {
             player.stop();
@@ -144,7 +158,10 @@ int main() {
             text(" TermFM  -  Terminal Radio Player ")
                 | bold | color(Color::Cyan) | center,
             separator(),
-            hbox({text(" Search: "), searchInput->Render()}) | border,
+            hbox({
+                text(" "), modeToggle->Render(),
+                text("  |  Search: "), searchInput->Render(),
+            }) | border,
             list | border,
             statusBar | border,
             text("  [Enter] search / play   [S] stop   [Q] quit  ")
