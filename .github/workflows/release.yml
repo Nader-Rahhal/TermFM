@@ -1,0 +1,16 @@
+name: Release
+run-name: release
+on:
+  push:
+    tags:
+      - 'v*'
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+      - run: cmake --build build
+      - uses: softprops/action-gh-release@v1
+        with:
+          files: build/termfm

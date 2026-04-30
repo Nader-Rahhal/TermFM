@@ -24,13 +24,13 @@ FetchContent_Declare(json
 
 FetchContent_MakeAvailable(ftxui json)
 
-add_executable(radio
+add_executable(termfm
     src/Main.cpp
     src/AudioPlayer.cpp
     src/RadioBrowser.cpp
 )
-target_link_libraries(radio PRIVATE ftxui::component)
-target_include_directories(radio PRIVATE
+target_link_libraries(termfm PRIVATE ftxui::component)
+target_include_directories(termfm PRIVATE
     ${CMAKE_SOURCE_DIR}/include
     ${json_SOURCE_DIR}
 )
