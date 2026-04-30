@@ -14,8 +14,12 @@ brew install ffmpeg
 # Ubuntu/Debian
 sudo apt install ffmpeg
 ```
+## Quick installation
 
-## Build
+```bash
+curl -L https://github.com/Nader-Rahhal/TermFM/releases/latest/download/termfm -o termfm && chmod +x termfm && sudo mv termfm /usr/local/bin/
+```
+## Build from source
 
 ```bash
 cmake -B build
