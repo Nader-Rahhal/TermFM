@@ -4,13 +4,15 @@ on:
   push:
     tags:
       - 'v*'
+permissions:
+  contents: write
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
       - run: cmake -B build -DCMAKE_BUILD_TYPE=Release
       - run: cmake --build build
-      - uses: softprops/action-gh-release@v1
+      - uses: softprops/action-gh-release@v2
         with:
           files: build/termfm
