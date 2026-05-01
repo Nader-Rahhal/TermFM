@@ -27,7 +27,9 @@ int main(int argc, char* argv[]) {
 
     auto screen = ScreenInteractive::Fullscreen();
 
+    // blocks here
     RadioBrowser browser;
+    
     AudioPlayer player;
 
     std::mutex mu;
