@@ -5,7 +5,9 @@ jobs:
   compile:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev ffmpeg
       - run: echo "Starting compilation..."
       - run: cmake -B build
       - run: cmake --build build
