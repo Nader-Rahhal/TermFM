@@ -18,7 +18,12 @@
 using json = nlohmann::json;
 using namespace ftxui;
 
-int main() {
+int main(int argc, char* argv[]) {
+
+    if (argc > 1 && std::string(argv[1]) == "--version") {
+        std::cout << "termfm v" << APP_VERSION << "\n";
+        return 0;
+    }
 
     auto screen = ScreenInteractive::Fullscreen();
 

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
-project(radio)
+project(terfm VERSION 1.1.0)
 
 set(CMAKE_CXX_STANDARD 20)
 
@@ -29,6 +29,8 @@ add_executable(termfm
     src/AudioPlayer.cpp
     src/RadioBrowser.cpp
 )
+
+target_compile_definitions(termfm PRIVATE APP_VERSION="${PROJECT_VERSION}")
 target_link_libraries(termfm PRIVATE ftxui::component)
 target_include_directories(termfm PRIVATE
     ${CMAKE_SOURCE_DIR}/include
