@@ -187,6 +187,7 @@ private:
                 std::lock_guard lk(mu);
                 stations = std::move(results);
                 entries.clear();
+		entries.reserve(stations.size());
                 for (auto& s : stations) entries.push_back(s.name);
                 selected  = 0;
                 statusMsg = entries.empty()

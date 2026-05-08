@@ -20,7 +20,11 @@ FetchContent_Declare(json
     URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.hpp
     DOWNLOAD_NO_EXTRACT TRUE
 )
-FetchContent_MakeAvailable(ftxui json)
+FetchContent_Declare(simdjson
+    GIT_REPOSITORY https://github.com/simdjson/simdjson
+    GIT_TAG  v3.9.3
+)
+FetchContent_MakeAvailable(ftxui json simdjson)
 
 add_executable(termfm
     src/Main.cpp
@@ -29,7 +33,7 @@ add_executable(termfm
 )
 
 target_compile_definitions(termfm PRIVATE APP_VERSION="${PROJECT_VERSION}")
-target_link_libraries(termfm PRIVATE ftxui::component CURL::libcurl)
+target_link_libraries(termfm PRIVATE ftxui::component CURL::libcurl simdjson)
 target_include_directories(termfm PRIVATE
     ${CMAKE_SOURCE_DIR}/include
     ${json_SOURCE_DIR}
