@@ -1,1 +1,4 @@
 build/
+perf.data
+perf.data.old
+bench/
